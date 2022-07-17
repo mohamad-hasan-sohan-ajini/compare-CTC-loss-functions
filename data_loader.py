@@ -100,11 +100,11 @@ def cudnn_compatible_collate_function(batch):
     target_result = torch.cat(target_batch)
     target_len_result = torch.IntTensor(target_len_batch).int()
     result = (
-        x_result.detach(),
-        x_len_result_fix.detach(),
-        x_len_result_real.detach(),
-        target_result.detach(),
-        target_len_result.detach(),
+        x_result,
+        x_len_result_fix,
+        x_len_result_real,
+        target_result,
+        target_len_result,
     )
     return result
 
