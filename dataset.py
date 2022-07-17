@@ -86,7 +86,7 @@ class LineDataset(Dataset):
         return x, x_len, target, target_len
 
 
-def cudnn_compatible_collate_function(batch):
+def collate_function(batch):
     x_batch, x_len_batch, target_batch, target_len_batch = zip(*batch)
     batch_size = len(x_batch)
     time_steps = max(x_len_batch)
@@ -95,18 +95,10 @@ def cudnn_compatible_collate_function(batch):
     for index, x in enumerate(x_batch):
         x_time_steps = x.size(2)
         x_result[index, :, :, :x_time_steps] = x
-    x_len_result_fix = torch.IntTensor([time_steps] * batch_size)
-    x_len_result_real = torch.IntTensor(x_len_batch)
+    x_len_result = torch.IntTensor(x_len_batch)
     target_result = torch.cat(target_batch)
     target_len_result = torch.IntTensor(target_len_batch).int()
-    result = (
-        x_result,
-        x_len_result_fix,
-        x_len_result_real,
-        target_result,
-        target_len_result,
-    )
-    return result
+    return x_result, x_len_result, target_result, target_len_result
 
 
 if __name__ == '__main__':
@@ -123,5 +115,5 @@ if __name__ == '__main__':
         num_workers=4,
         collate_fn=cudnn_compatible_collate_function,
     )
-    for x, x_len_fix, x_len_real, target, target_len in dl:
+    for x, x_len, target, target_len in dl:
         break

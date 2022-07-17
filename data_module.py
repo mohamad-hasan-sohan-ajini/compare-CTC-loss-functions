@@ -3,7 +3,7 @@ from typing import Optional
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 
-from data_loader import LineDataset, cudnn_compatible_collate_function
+from dataset import LineDataset, collate_function
 
 
 class LineDataModule(LightningDataModule):
@@ -29,17 +29,14 @@ class LineDataModule(LightningDataModule):
         self.train_dataset = LineDataset(
             self.train_text_path,
             self.font_path_list,
-            self.line_height,
         )
         self.val_dataset = LineDataset(
             self.val_text_path,
             self.font_path_list,
-            self.line_height,
         )
         self.test_dataset = LineDataset(
             self.test_text_path,
             self.font_path_list,
-            self.line_height,
         )
 
     def train_dataloader(self) -> DataLoader:
@@ -47,7 +44,7 @@ class LineDataModule(LightningDataModule):
             self.train_dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            collate_fn=cudnn_compatible_collate_function,
+            collate_fn=collate_function,
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -55,7 +52,7 @@ class LineDataModule(LightningDataModule):
             self.val_dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            collate_fn=cudnn_compatible_collate_function,
+            collate_fn=collate_function,
         )
 
     def test_dataloader(self) -> DataLoader:
@@ -63,7 +60,7 @@ class LineDataModule(LightningDataModule):
             self.test_dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            collate_fn=cudnn_compatible_collate_function,
+            collate_fn=collate_function,
         )
 
 
@@ -79,5 +76,5 @@ if __name__ == '__main__':
     )
     dm.setup()
     dl = dm.train_dataloader()
-    for x, x_len_fix, x_len_real, target, target_len in dl:
+    for x, x_len, target, target_len in dl:
         break
