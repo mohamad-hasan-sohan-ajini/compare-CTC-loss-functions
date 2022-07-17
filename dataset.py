@@ -14,12 +14,12 @@ class LineDataset(Dataset):
         + list(string.digits)
         + list(string.punctuation)
     )
+    line_height = 32
 
     def __init__(
             self,
             text_path: str,
             font_path_list: list[str],
-            line_height: int = 32,
     ) -> None:
         self.alphabet_dict = {
             char: index
@@ -34,7 +34,6 @@ class LineDataset(Dataset):
             ImageFont.truetype(font_path, 32)
             for font_path in font_path_list
         ]
-        self.line_height = line_height
 
     def _preprocess(self, text: list[str]) -> list[str]:
         # remove empty lines and strip whitespaces
