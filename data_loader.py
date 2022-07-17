@@ -2,7 +2,7 @@ import random
 import string
 
 import torch
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFont
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import PILToTensor
 
