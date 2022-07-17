@@ -15,6 +15,8 @@ class LineDataset(Dataset):
         + list(string.punctuation)
     )
     line_height = 32
+    x_margin = 16
+    y_margin = 16
 
     def __init__(
             self,
@@ -50,24 +52,23 @@ class LineDataset(Dataset):
         return text
 
     def _get_image_of_line(self, line: str) -> tuple[torch.Tensor, int]:
-        x_margin, y_margin = 16, 16
         # calculate canvas size
         font = random.choice(self.fonts)
         (left, _, right, _) = font.getbbox(line)
-        width = right - left + x_margin
-        height = font.getmetrics()[0] + y_margin
+        width = right - left + self.x_margin
+        height = font.getmetrics()[0] + self.y_margin
         # create canvas and write line
         canvas = Image.new('RGB', (width, height), "#FFFFFF")
         draw = ImageDraw.Draw(canvas)
         draw.text(
-            (x_margin // 2, y_margin // 2),
+            (self.x_margin // 2, self.y_margin // 2),
             line,
             font=font,
             fill='#000000',
         )
         # rescale to line height
-        scale = 32 / height
-        canvas = canvas.resize((int(width * scale), 32))
+        scale = self.line_height / height
+        canvas = canvas.resize((int(width * scale), self.line_height))
         image_tensor = PILToTensor()(canvas)
         return image_tensor / 255, image_tensor.size(2)
 
