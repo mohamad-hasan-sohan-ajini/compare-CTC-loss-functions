@@ -89,7 +89,8 @@ class BaseOCRModel(LightningModule):
             x_len: Tensor,
             targets: Tensor,
             targets_len: Tensor,
-    ):
+    ) -> Tensor:
+        """Calculate CTC loss"""
         raise NotImplemented(
             'Successor class must implement this based on CTC loss '
             'considerations.'
