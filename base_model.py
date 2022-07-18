@@ -1,3 +1,7 @@
+'''Base Model'''
+
+from itertools import chain
+
 import torch
 from torch import Tensor, nn
 from torchaudio.models.decoder import ctc_decoder
@@ -183,3 +187,10 @@ class BaseOCRModel(LightningModule):
             for start, end in zip(targets_len_cs_0, targets_len_cs)
         ]
         return self.cer_metric(hyps, refs), self.wer_metric(hyps, refs)
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(
+            chain(self.conv.parameters(), self.linear.parameters()),
+            lr=2e-4,
+        )
+        return {'optimizer': optimizer}
