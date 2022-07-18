@@ -41,7 +41,8 @@ class BaseOCRModel(LightningModule):
         self.ctc_decoder = ctc_decoder(
             lexicon=None,
             tokens=self.alphabet,
-            sil_token=self.alphabet[0],
+            blank_token=self.alphabet[0],
+            sil_token=self.alphabet[1],
         )
         self.cer_metric = CharErrorRate()
         self.wer_metric = WordErrorRate()
@@ -67,7 +68,7 @@ class BaseOCRModel(LightningModule):
             module_name_counter += 1
             in_channels = out_channels
             out_channels *= 2
-        self.linear = nn.Linear(in_channels, len(self.alphabet))
+        self.linear = nn.Linear(in_channels, len(self.alphabet), bias=False)
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass
@@ -77,6 +78,7 @@ class BaseOCRModel(LightningModule):
         :return: Backbone network raw output. Shape (T, N, Alphabet)
         :rtype: Tensor
         """
+        x = 1 - x
         x = self.conv(x)
         # squeeze height and reform data to (T, N, Alphabet) shape
         x = x.squeeze(2).permute(2, 0, 1)
@@ -100,15 +102,7 @@ class BaseOCRModel(LightningModule):
         x, x_len, targets, targets_len = batch
         pred = self(x)
         loss = self.criterion(pred, x_len, targets, targets_len)
-        cer, wer = self._calculate_metrics(
-            pred.detach(),
-            targets,
-            x_len,
-            targets_len,
-        )
         self.log('train_loss', loss.detach().cpu().item())
-        self.log('train_cer', cer)
-        self.log('train_wer', wer)
         return {'loss': loss}
 
     def validation_step(self, batch, batch_idx) -> dict[str, Tensor]:
@@ -116,14 +110,14 @@ class BaseOCRModel(LightningModule):
         pred = self(x)
         loss = self.criterion(pred, x_len, targets, targets_len)
         cer, wer = self._calculate_metrics(
-            pred.detach(),
-            targets,
-            x_len,
-            targets_len,
+            pred.detach().cpu(),
+            targets.cpu(),
+            x_len.cpu(),
+            targets_len.cpu(),
         )
         self.log('val_loss', loss.detach().cpu().item())
-        self.log('val_cer', cer)
-        self.log('val_wer', wer)
+        self.log('val_cer', cer, on_epoch=True)
+        self.log('val_wer', wer, on_epoch=True)
         return {'loss': loss}
 
     def test_step(self, batch, batch_idx) -> dict[str, Tensor]:
@@ -132,14 +126,68 @@ class BaseOCRModel(LightningModule):
         loss = self.criterion(pred, x_len, targets, targets_len)
         cer, wer = self._calculate_metrics(
             pred.detach(),
-            targets,
-            x_len,
-            targets_len,
+            targets.cpu(),
+            x_len.cpu(),
+            targets_len.cpu(),
         )
         self.log('test_loss', loss.detach().cpu().item())
         self.log('test_cer', cer)
         self.log('test_wer', wer)
         return {'loss': loss}
+
+    def _decode_preds(self, preds: Tensor, preds_len: Tensor) -> list[str]:
+        """Decode network predictions
+
+        :param preds: Probabilities of each character. Shape
+            (T, N, Alphabet)
+        :type preds: Tensor
+        :param preds_len: Length of inputs image regards each sample.
+            Shape (N)
+        :type preds_len: Tensor
+        :return: Decoded strings
+        :rtype: list[str]
+        """
+        preds = preds.transpose(0, 1)
+        hyps = [
+            ''.join(
+                [
+                    self.alphabet[token_index]
+                    for token_index in decoded_hyp[0].tokens[1:-1]
+                ]
+            )
+            if decoded_hyp
+            else ''
+            for decoded_hyp in self.ctc_decoder(preds, preds_len)
+        ]
+        return hyps
+
+    def _decode_targets(
+            self,
+            targets: Tensor,
+            targets_len: Tensor,
+    ) -> list[str]:
+        """Decode targets
+
+        :param targets: Flattened targets. Shape (None)
+        :type targets: Tensor
+        :param targets_len: Length of targets regards each sample.
+            Shape (N)
+        :type targets_len: Tensor
+        :return: Decoded strings
+        :rtype: list[str]
+        """
+        targets_len_cs = targets_len.cumsum(0)
+        targets_len_cs_0 = torch.cat([torch.IntTensor([0]), targets_len_cs])
+        refs = [
+            ''.join(
+                [
+                    self.alphabet[token_index]
+                    for token_index in targets[start:end]
+                ]
+            )
+            for start, end in zip(targets_len_cs_0, targets_len_cs)
+        ]
+        return refs
 
     def _calculate_metrics(
             self,
@@ -164,29 +212,8 @@ class BaseOCRModel(LightningModule):
         :return: The value of CER and WER metrics
         :rtype: tuple[float, float]
         """
-        preds = preds.transpose(0, 1)
-        hyps = [
-            ''.join(
-                [
-                    self.labels[token_index]
-                    for token_index in decoded_hyp[0].tokens
-                ]
-            )
-            if decoded_hyp
-            else ''
-            for decoded_hyp in self.ctc_decoder(preds, preds_len.cpu())
-        ]
-        targets_len_cs = targets_len.cpu().cumsum(0)
-        targets_len_cs_0 = torch.cat([torch.IntTensor([0]), targets_len_cs])
-        refs = [
-            ''.join(
-                [
-                    self.labels[token_index]
-                    for token_index in targets[start:end]
-                ]
-            )
-            for start, end in zip(targets_len_cs_0, targets_len_cs)
-        ]
+        hyps = self._decode_preds(preds, preds_len)
+        refs = self._decode_targets(targets, targets_len)
         return self.cer_metric(hyps, refs), self.wer_metric(hyps, refs)
 
     def configure_optimizers(self):

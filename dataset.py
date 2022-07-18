@@ -29,7 +29,7 @@ class LineDataset(Dataset):
         }
         # load text book + preprocessing
         with open(text_path) as f:
-            text = f.read().splitlines()
+            text = f.read().lower().splitlines()
         self.text = self._preprocess(text)
         # load fonts
         self.fonts = [
@@ -91,7 +91,7 @@ def collate_function(batch):
     batch_size = len(x_batch)
     time_steps = max(x_len_batch)
     num_freqs = x_batch[0].size(1)
-    x_result = torch.zeros((batch_size, 3, num_freqs, time_steps))
+    x_result = torch.ones((batch_size, 3, num_freqs, time_steps))
     for index, x in enumerate(x_batch):
         x_time_steps = x.size(2)
         x_result[index, :, :, :x_time_steps] = x
@@ -113,7 +113,7 @@ if __name__ == '__main__':
         ds,
         batch_size=8,
         num_workers=4,
-        collate_fn=cudnn_compatible_collate_function,
+        collate_fn=collate_function,
     )
     for x, x_len, target, target_len in dl:
         break

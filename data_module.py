@@ -17,6 +17,7 @@ class LineDataModule(LightningDataModule):
             batch_size: int = 32,
             num_workers: int = 8,
     ) -> None:
+        super().__init__()
         self.train_text_path = train_text_path
         self.val_text_path = val_text_path
         self.test_text_path = test_text_path
