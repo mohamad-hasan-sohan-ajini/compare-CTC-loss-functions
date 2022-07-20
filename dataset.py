@@ -41,7 +41,7 @@ class LineDataset(Dataset):
         # remove empty lines and strip whitespaces
         text = [line.strip() for line in text if line]
         # remove lines contain characters not in alphabet_list
-        alphabet_set = set(self.alphabet_list)
+        alphabet_set = set(self.alphabet_list[1:])
         text = [
             line
             for line in text
