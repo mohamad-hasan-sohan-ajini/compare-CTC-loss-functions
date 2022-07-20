@@ -22,8 +22,8 @@ model = BaseOCRModel(
     dm.train_dataset.alphabet_list,
     dm.train_dataset.line_height,
 )
-model.load_from_checkpoint(
-    'lightning_logs/version_12/checkpoints/last.ckpt',
+model = model.load_from_checkpoint(
+    'lightning_logs/version_18/checkpoints/epoch=93-step=1001200.ckpt',
     alphabet=dm.train_dataset.alphabet_list,
     line_height=dm.train_dataset.line_height,
 )
