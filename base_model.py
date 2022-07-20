@@ -33,10 +33,31 @@ class ConvBlock(nn.Module):
         return self.main(x)
 
 
+class BGRU(nn.Module):
+
+    def __init__(self, input_size: int, hidden_size: int):
+        super().__init__()
+        self.gru = nn.GRU(input_size, hidden_size, bidirectional=True)
+
+    def forward(self, x: Tensor) -> Tensor:
+        """forward
+
+        :param x: Input tensor of shape (T, N, H)
+        :type x: Tensor
+        :return: Time smoothed tensor
+        :rtype: Tensor
+        """
+        x, _ = self.gru(x)
+        timesteps, batch_size, _ = x.size()
+        x = x.view(timesteps, batch_size, 2, -1).sum(dim=2)
+        return x
+
+
 class BaseOCRModel(LightningModule):
     def __init__(self, alphabet: list[str], line_height: int = 32) -> None:
         super().__init__()
         self.alphabet = alphabet
+        # evaluation tools
         self.line_height = line_height
         self.ctc_decoder = ctc_decoder(
             lexicon=None,
@@ -48,7 +69,7 @@ class BaseOCRModel(LightningModule):
         self.wer_metric = WordErrorRate()
         # backbone model
         self.conv = nn.Sequential()
-        in_channels = 3
+        in_channels = 1
         out_channels = 32
         module_name_counter = 0
         while line_height > 1:
@@ -56,18 +77,19 @@ class BaseOCRModel(LightningModule):
                 f'layer{module_name_counter}_conv0',
                 ConvBlock(in_channels, out_channels, 3),
             )
-            self.conv.add_module(
-                f'layer{module_name_counter}_conv1',
-                ConvBlock(out_channels, out_channels, 3),
-            )
+            # self.conv.add_module(
+            #     f'layer{module_name_counter}_conv1',
+            #     ConvBlock(out_channels, out_channels, 3),
+            # )
             self.conv.add_module(
                 f'layer{module_name_counter}_maxpool',
-                nn.MaxPool2d((2, 1), (2, 1)),
+                nn.AvgPool2d((2, 1), (2, 1)),
             )
             line_height = line_height // 2
             module_name_counter += 1
             in_channels = out_channels
             out_channels *= 2
+        self.rnn = BGRU(in_channels, in_channels)
         self.linear = nn.Linear(in_channels, len(self.alphabet), bias=False)
 
     def forward(self, x: Tensor) -> Tensor:
@@ -78,10 +100,11 @@ class BaseOCRModel(LightningModule):
         :return: Backbone network raw output. Shape (T, N, Alphabet)
         :rtype: Tensor
         """
-        x = 1 - x
+        x = 1 - x.mean(dim=1, keepdim=True)
         x = self.conv(x)
         # squeeze height and reform data to (T, N, Alphabet) shape
         x = x.squeeze(2).permute(2, 0, 1)
+        x = self.rnn(x)
         x = self.linear(x)
         return x
 
