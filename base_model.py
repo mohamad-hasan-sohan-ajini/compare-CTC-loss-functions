@@ -4,7 +4,6 @@ from itertools import chain
 
 import torch
 from torch import Tensor, nn
-from torchaudio.models.decoder import ctc_decoder
 from torchmetrics import CharErrorRate, WordErrorRate
 from pytorch_lightning import LightningModule
 
@@ -53,17 +52,32 @@ class BGRU(nn.Module):
         return x
 
 
+class GreedyCTCDecoder(nn.Module):
+    def __init__(self, labels, blank_token, space_token):
+        super().__init__()
+        self.labels = labels
+        self.blank_index = labels.index(blank_token)
+        self.space_token = space_token
+
+    def forward(self, emission: Tensor) -> list[str]:
+        # emission: logit tensors. Shape (T, |Alphabet|).
+        indices = torch.argmax(emission, dim=-1)
+        indices = torch.unique_consecutive(indices, dim=-1)
+        indices = [i for i in indices if i != self.blank_index]
+        joined = ''.join([self.labels[i] for i in indices])
+        return joined.replace(self.space_token, ' ').strip()
+
+
 class BaseOCRModel(LightningModule):
     def __init__(self, alphabet: list[str], line_height: int = 32) -> None:
         super().__init__()
         self.alphabet = alphabet
         # evaluation tools
         self.line_height = line_height
-        self.ctc_decoder = ctc_decoder(
-            lexicon=None,
-            tokens=self.alphabet,
-            blank_token=self.alphabet[0],
-            sil_token=self.alphabet[1],
+        self.ctc_decoder = GreedyCTCDecoder(
+            labels=alphabet,
+            blank_token=alphabet[0],
+            space_token=alphabet[1],
         )
         self.cer_metric = CharErrorRate()
         self.wer_metric = WordErrorRate()
@@ -170,18 +184,12 @@ class BaseOCRModel(LightningModule):
         :return: Decoded strings
         :rtype: list[str]
         """
-        preds = preds.transpose(0, 1)
-        hyps = [
-            ''.join(
-                [
-                    self.alphabet[token_index]
-                    for token_index in decoded_hyp[0].tokens[1:-1]
-                ]
-            )
-            if decoded_hyp
-            else ''
-            for decoded_hyp in self.ctc_decoder(preds, preds_len)
-        ]
+        hyps = []
+        for pred, pred_len in zip(preds.transpose(0, 1), preds_len):
+            try:
+                hyps.append(self.ctc_decoder(pred[:pred_len]))
+            except IndexError:
+                hyps.append('')
         return hyps
 
     def _decode_targets(
