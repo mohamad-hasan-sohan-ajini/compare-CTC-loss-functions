@@ -1,4 +1,3 @@
-from pyexpat.errors import XML_ERROR_NO_ELEMENTS
 import torch
 from torch import Tensor, nn
 
@@ -65,7 +64,6 @@ class CUDNNCTCLoss(BaseOCRModel):
             targets_len.int().cpu(),
         )
         return loss
-
 
 
 class WarpCTCLoss(BaseOCRModel):
