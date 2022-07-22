@@ -10,9 +10,9 @@ from torchvision.transforms import PILToTensor
 class LineDataset(Dataset):
     alphabet_list = (
         ['—', ' ']
-        + list(string.ascii_lowercase)
-        # + list(string.digits)
-        # + list(string.punctuation)
+        + list(string.ascii_letters)
+        + list(string.digits)
+        + list(string.punctuation)
     )
     line_height = 32
     x_margin = 16
@@ -29,7 +29,7 @@ class LineDataset(Dataset):
         }
         # load text book + preprocessing
         with open(text_path) as f:
-            text = f.read().lower().splitlines()
+            text = f.read().splitlines()
         self.text = self._preprocess(text)
         # load fonts
         self.fonts = [
