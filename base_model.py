@@ -91,10 +91,10 @@ class BaseOCRModel(LightningModule):
                 f'layer{module_name_counter}_conv0',
                 ConvBlock(in_channels, out_channels, 3),
             )
-            # self.conv.add_module(
-            #     f'layer{module_name_counter}_conv1',
-            #     ConvBlock(out_channels, out_channels, 3),
-            # )
+            self.conv.add_module(
+                f'layer{module_name_counter}_conv1',
+                ConvBlock(out_channels, out_channels, 3),
+            )
             self.conv.add_module(
                 f'layer{module_name_counter}_maxpool',
                 nn.AvgPool2d((2, 1), (2, 1)),
