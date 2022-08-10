@@ -69,11 +69,17 @@ class GreedyCTCDecoder(nn.Module):
 
 
 class BaseOCRModel(LightningModule):
-    def __init__(self, alphabet: list[str], line_height: int = 32) -> None:
+    def __init__(
+            self,
+            alphabet: list[str],
+            line_height: int = 32,
+            max_channels: int = 512,
+    ) -> None:
         super().__init__()
         self.alphabet = alphabet
         # evaluation tools
         self.line_height = line_height
+        self.max_channels = max_channels
         self.ctc_decoder = GreedyCTCDecoder(
             labels=alphabet,
             blank_token=alphabet[0],
@@ -103,6 +109,7 @@ class BaseOCRModel(LightningModule):
             module_name_counter += 1
             in_channels = out_channels
             out_channels *= 2
+            out_channels = min(out_channels, self.max_channels)
         self.rnn = BGRU(in_channels, in_channels)
         self.linear = nn.Linear(in_channels, len(self.alphabet), bias=False)
 
@@ -249,7 +256,11 @@ class BaseOCRModel(LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(
-            chain(self.conv.parameters(), self.linear.parameters()),
+            chain(
+                self.conv.parameters(),
+                self.rnn.parameters(),
+                self.linear.parameters(),
+            ),
             lr=2e-4,
         )
         return {'optimizer': optimizer}
